@@ -1,0 +1,2 @@
+# VeoCL
+Amoveo OpenCL miner
