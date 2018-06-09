@@ -460,6 +460,9 @@ void *worker(void *p1) {
 }
 
 int main(int argc, char **argv) {
+	// Dont buffer output so that services get logging immediately
+	setbuf(stdout, NULL);
+
 	// Default-pool:
 	poolport = 8880;
 	hostname = "veopool.pw";
