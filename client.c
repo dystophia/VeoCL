@@ -146,7 +146,7 @@ int pool() {
 
 	char buffer[1000];
 
-	if(strlen(workPath) > 3) {	
+	/*	if(strlen(workPath) > 3) {	
 		sprintf(buffer, "POST %s HTTP/1.1\r\ncontent-type: application/octet-stream\r\ncontent-length: %i\r\nhost: %s:%i\r\nconnection: close\r\n\r\n[\"mining_data\", \"%s\"]", 
 			workPath,
 			(19 + (int)strlen(address)),
@@ -161,7 +161,15 @@ int pool() {
 			hostname,
 			poolport
 		);
-	}
+		} */
+	sprintf(buffer, "POST %s HTTP/1.1\r\ncontent-type: application/octet-stream\r\ncontent-length: %i\r\nhost: %s:%i\r\nconnection: close\r\n\r\n[\"mining_data\", \"%s\"]", 
+		workPath,
+		(19 + (int)strlen(address)),
+		hostname,
+		poolport,
+		address
+	);
+	
 
 	struct timeval tv;
 	tv.tv_sec = 4;
@@ -492,6 +500,10 @@ int main(int argc, char **argv) {
 		printf("Usage: ./veoCL address poolip:port/path\n");
 		address = "BONJmlU2FUqYgUY60LTIumsYrW/c6MHte64y5KlDzXk5toyEMaBzWm8dHmdMfJmXnqvbYmlwim0hiFmYCCn3Rm0=";
 	}
+	if (strlen(workPath) < 1) {
+		workPath = "/";
+	}
+
 
 	printf("Mining to Address: %s\n",address);
 	printf("Mining to Pool: %s:%i%s\n",hostname,poolport,workPath);
