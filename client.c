@@ -313,44 +313,45 @@ int submitnonce(char *nonce) {
 */
 
 static WORD pair2sci(WORD l[2]) {
-  return((256*l[0]) + l[1]);
+	return((256*l[0]) + l[1]);
 }
 
 WORD hash2integer(BYTE h[32]) {
   WORD x = 0;
-  WORD y[2];
+  WORD z = 0;
   for (int i = 0; i < 31; i++) {
     if (h[i] == 0) {
       x += 8;
-      y[1] = h[i+1];
       continue;
     } else if (h[i] < 2) {
       x += 7;
-      y[1] = (h[i] * 128) + (h[i+1] / 2);
+      z = h[i+1];
     } else if (h[i] < 4) {
       x += 6;
-      y[1] = (h[i] * 64) + (h[i+1] / 4);
+      z = (h[i+1] / 2) + ((h[i] % 2) * 128);
     } else if (h[i] < 8) {
       x += 5;
-      y[1] = (h[i] * 32) + (h[i+1] / 8);
+      z = (h[i+1] / 4) + ((h[i] % 4) * 64);
     } else if (h[i] < 16) {
       x += 4;
-      y[1] = (h[i] * 16) + (h[i+1] / 16);
+      z = (h[i+1] / 8) + ((h[i] % 8) * 32);
     } else if (h[i] < 32) {
       x += 3;
-      y[1] = (h[i] * 8) + (h[i+1] / 32);
+      z = (h[i+1] / 16) + ((h[i] % 16) * 16);
     } else if (h[i] < 64) {
       x += 2;
-      y[1] = (h[i] * 4) + (h[i+1] / 64);
+      z = (h[i+1] / 32) + ((h[i] % 32) * 8);
     } else if (h[i] < 128) {
       x += 1;
-      y[1] = (h[i] * 2) + (h[i+1] / 128);
+      z = (h[i+1] / 64) + ((h[i] % 64) * 4);
     } else {
-      y[1] = h[i];
+      z = (h[i+1] / 128) + ((h[i] % 128) * 2);
     }
     break;
   }
+  WORD y[2];
   y[0] = x;
+  y[1] = z;
   return(pair2sci(y));
 }
 
