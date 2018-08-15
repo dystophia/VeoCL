@@ -37,9 +37,9 @@ int sharediff = 0;
 unsigned char data[32];
 
 unsigned int poolport;
-unsigned char *workPath;
-unsigned char *address;
-unsigned char *hostname;
+char *workPath;
+char *address;
+char *hostname;
 struct in_addr *poolip;
 int pollcount = 0;
 
@@ -55,7 +55,6 @@ void build_decoding_table() {
 }
 
 char *base64_encode(const unsigned char *data, size_t input_length, size_t *output_length) {
-
     *output_length = 4 * ((input_length + 2) / 3);
 
     char *encoded_data = malloc(*output_length);
@@ -110,12 +109,7 @@ unsigned char *base64_decode(const char *data, size_t input_length, size_t *outp
         if (j < *output_length) decoded_data[j++] = (triple >> 1 * 8) & 0xFF;
         if (j < *output_length) decoded_data[j++] = (triple >> 0 * 8) & 0xFF;
     }
-
     return decoded_data;
-}
-
-void base64_cleanup() {
-    free(decoding_table);
 }
 
 void nonblock(int sock) {
@@ -199,19 +193,22 @@ int pool() {
 						int olen;
 						char *bf = base64_decode(&buffer[sp + 1], j - sp - 1, &olen);
 							
-						buffer[j+7] = 0;
+						if(bf != NULL) {
 
-						if(buffer[j+12] == ']')
-							buffer[j+12] = 0;
-						else
-							buffer[j+13] = 0;
+							buffer[j+7] = 0;
 
-						diff = strtol(&buffer[j+2], (char **)NULL, 10);
-						sharediff = strtol(&buffer[j+8], (char **)NULL, 10);
+							if(buffer[j+12] == ']')
+								buffer[j+12] = 0;
+							else
+								buffer[j+13] = 0;
 
-						if (strncmp(data, bf, 32)!=0) {						
-							printf("Network diff: %i, share diff: %i\n", diff, sharediff);
-							memcpy(data, bf, 32);
+							diff = strtol(&buffer[j+2], (char **)NULL, 10);
+							sharediff = strtol(&buffer[j+8], (char **)NULL, 10);
+
+							if (strncmp(data, bf, 32)!=0) {						
+								printf("Network diff: %i, share diff: %i\n", diff, sharediff);
+								memcpy(data, bf, 32);
+							}
 						}
 
 						free(bf);			
@@ -228,7 +225,7 @@ int pool() {
 	return -1;
 }
 
-int submitnonce(char *nonce) {
+int submitnonce(unsigned char *nonce) {
         int sd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 
  	nonblock(sd);
@@ -359,6 +356,7 @@ struct gpuContext {
 	int blocksdone;
 	int waitus;
 	int load;
+	int lastevent;
 	char *name;
 };
 
@@ -403,10 +401,11 @@ void *worker(void *p1) {
 #endif
 
                 clFinish(gc->commands);
-
+		
                 gettimeofday(&kernelEnd,NULL);
                 unsigned long time_in_micros = 1000000 * (kernelEnd.tv_sec - kernelStart.tv_sec) + (kernelEnd.tv_usec - kernelStart.tv_usec);
                 gc->waitus = time_in_micros;
+		gc->lastevent = kernelEnd.tv_sec;
 
                 err = clEnqueueReadBuffer( gc->commands, gc->output, CL_TRUE, 0, 8 * gc->load, out, 0, NULL, NULL );
                 if (err != CL_SUCCESS) {
@@ -417,7 +416,7 @@ void *worker(void *p1) {
 
                 pthread_mutex_unlock(&gc->gpulock);
 
-		char hash0[32];
+		unsigned char hash0[32];
 		SHA256_CTX ctx;
 
 		for(int i=0; i<gc->load; i++) {
@@ -428,7 +427,7 @@ void *worker(void *p1) {
 				out[i * 8 + 6] == 0 && out[i * 8 + 7] == 0
 			) continue;
 
-			char submit[23];
+			unsigned char submit[23];
 			memcpy(submit, &in[32], 16);
 			memcpy(&submit[16], &out[i * 8], 7);
 
@@ -454,8 +453,6 @@ int main(int argc, char **argv) {
 	workPath = "/work";
 
         if (argc > 1) {
-		size_t lengthAddress = strlen(argv[1])+1;
-
 		if(argc > 2) {
 			for(int i=0;i<strlen(argv[2]);i++) {
 				if(argv[2][i] == ':' || argv[2][i] == '/') {
@@ -501,9 +498,6 @@ int main(int argc, char **argv) {
 	pthread_mutex_init(&mutex, NULL);
 
         randfd = open("/dev/urandom", O_RDONLY);
-
-        unsigned char pad[32];
-        SHA256_CTX ctx;
 
 	unsigned char *ccd = malloc(20000);
 
@@ -614,8 +608,15 @@ int main(int argc, char **argv) {
 		if(run % 3 == 0) {
 			unsigned long long total = 0;
 			for(int i=0; i < ret_num_devices; i++) {
-				unsigned long long rate = (c[i].load * (1ULL << 15)) / c[i].waitus; total += rate;
-				printf("GPU %u, %s: %lluMH/s ", i, c[i].name, rate);
+				unsigned long long rate = (c[i].load * (1ULL << 15)) / c[i].waitus;
+
+				// No response in 5 seconds - GPU probably crashed.
+				if(c[i].lastevent < tv2.tv_sec - 5) {
+					printf("GPU %u, %s: No response ", i, c[i].name);
+				} else {
+					printf("GPU %u, %s: %lluMH/s ", i, c[i].name, rate);
+					total += rate;
+				}
 			}
 			printf("Total: %lluMH/s\n", total);
 		}
