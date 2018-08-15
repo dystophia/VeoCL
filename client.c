@@ -4,9 +4,6 @@
 	
 	for AMD & Nvidia GPU´s
 
-	Donations:
-	BONJmlU2FUqYgUY60LTIumsYrW/c6MHte64y5KlDzXk5toyEMaBzWm8dHmdMfJmXnqvbYmlwim0hiFmYCCn3Rm0=
-
 */
 
 #include <stdio.h>
@@ -146,22 +143,13 @@ int pool() {
 
 	char buffer[1000];
 
-	if(strlen(workPath) > 3) {	
-		sprintf(buffer, "POST %s HTTP/1.1\r\ncontent-type: application/octet-stream\r\ncontent-length: %i\r\nhost: %s:%i\r\nconnection: close\r\n\r\n[\"mining_data\", \"%s\"]", 
-			workPath,
-			(19 + (int)strlen(address)),
-			hostname,
-			poolport,
-			address
-		);
-	} else {
-		sprintf(buffer, "POST %s HTTP/1.1\r\ncontent-type: application/octet-stream\r\ncontent-length: %i\r\nhost: %s:%i\r\nconnection: close\r\n\r\n[\"mining_data\",8080]", 
-			workPath,
-			20,
-			hostname,
-			poolport
-		);
-	}
+	sprintf(buffer, "POST %s HTTP/1.1\r\ncontent-type: application/octet-stream\r\ncontent-length: %i\r\nhost: %s:%i\r\nconnection: close\r\n\r\n[\"mining_data\", \"%s\"]", 
+		workPath,
+		(19 + (int)strlen(address)),
+		hostname,
+		poolport,
+		address
+	);
 
 	struct timeval tv;
 	tv.tv_sec = 4;
@@ -226,6 +214,8 @@ int pool() {
 							memcpy(data, bf, 32);
 						}
 
+						free(bf);			
+
 						return 0;
 					}
 				}
@@ -271,7 +261,6 @@ int submitnonce(char *nonce) {
 	select(sd+1, NULL, &my, NULL, &tv);
 
 	if(!FD_ISSET(sd, &my)) {
-		//printf("Submit Connect timeout. Retrying..\n");
 		close(sd);
 		return -1;
 	}
@@ -287,7 +276,6 @@ int submitnonce(char *nonce) {
 	select(sd+1, &my, NULL, NULL, &tv);
 
 	if(!FD_ISSET(sd, &my)) {
-		//printf("Submit Recv timeout. Retrying..\n");
 		close(sd);
 		return -1;
 	}
@@ -300,7 +288,6 @@ int submitnonce(char *nonce) {
 			if(buffer[i+4] == '[' && buffer[bytes-1] == ']') {
 				printf("Share accepted.\n");
 			}
-			//write(1, &buffer[i+4], bytes - i - 4);
 		}
 	return 0;
 }
@@ -482,6 +469,9 @@ int main(int argc, char **argv) {
 
 					workPath = &argv[2][i];
 					i = 100000;
+			
+					// Missed final "/"?
+					if(workPath[0] == 0) workPath = "/";
 				}
 			}
 		}
@@ -554,7 +544,7 @@ int main(int argc, char **argv) {
 		c[i].name = malloc(sizeof(gpuname)+1);
 		memcpy(c[i].name, gpuname, sizeof(gpuname));
 		c[i].name[sizeof(gpuname)] = 0;
-		c[i].load = maxComputeUnits * workgroup * 2;
+		c[i].load = maxComputeUnits * workgroup / 2;
 
                 c[i].context = clCreateContext(0, 1, &device_id[i], NULL, NULL, &err);
                 if (!c[i].context) {
